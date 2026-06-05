@@ -1,0 +1,26 @@
+=== Winner: Player 3 (statistical_bot) ===
+  game 1/10 done — winner: statistical_bot
+  game 2/10 done — winner: statistical_bot
+  game 3/10 done — winner: statistical_bot
+  game 4/10 done — winner: statistical_bot
+  game 5/10 done — winner: cfr_bot
+  game 6/10 done — winner: statistical_bot
+  game 7/10 done — winner: mcts_bot
+  game 8/10 done — winner: statistical_bot
+  game 9/10 done — winner: statistical_bot
+  game 10/10 done — winner: statistical_bot
+
+====================================================
+  Tournament Summary  (10 games)
+====================================================
+  Avg rounds   : 27.5  (σ=2.4, min=25, max=34)
+
+  P0         llm_bot:   0 wins (  0.0%)  avg survival 15.9 rds
+  P1         cfr_bot:   1 wins ( 10.0%)  avg survival 24.6 rds
+  P2        mcts_bot:   1 wins ( 10.0%)  avg survival 21.5 rds
+  P3 statistical_bot:   5 wins ( 50.0%)  avg survival 27.4 rds
+  P4      random_bot:   0 wins (  0.0%)  avg survival 6.3 rds
+  P5 statistical_bot:   3 wins ( 30.0%)  avg survival 25.4 rds
+
+  Liar calls   :   265 total  57.0% correct
+  Spot-on calls:    10 total  30.0% correct

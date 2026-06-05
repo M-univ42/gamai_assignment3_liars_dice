@@ -176,8 +176,7 @@ def run_tournament(bots, n_games=200):
     for i in range(n_games):
         _, stats = play_game(bots, verbose=(i == 0))
         all_stats.append(stats)
-        if (i + 1) % 50 == 0:
-            print(f'  {i + 1}/{n_games} complete')
+        print(f'  game {i+1}/{n_games} done — winner: {stats["winner_bot"]}')
     return all_stats
 
 
@@ -455,9 +454,9 @@ def play_interactive(human_player_id=0, n_opponents=5):
 
 
 if __name__ == '__main__':
-    from bots import random_bot, statistical_bot, mcts_bot, cfr_bot
-    bots = [cfr_bot, mcts_bot, statistical_bot, random_bot, statistical_bot, random_bot]
-    all_stats = run_tournament(bots, n_games=200)
+    from bots import random_bot, statistical_bot, mcts_bot, cfr_bot, llm_bot
+    bots = [llm_bot, cfr_bot, mcts_bot, random_bot, statistical_bot,random_bot]
+    all_stats = run_tournament(bots, n_games=10)
     plot_tournament_stats(all_stats, bots)
     import os, subprocess
     subprocess.Popen(['explorer', os.path.abspath('tournament_stats.png')])
