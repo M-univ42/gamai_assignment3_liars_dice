@@ -1,12 +1,13 @@
 import game_engine
 import bots
 import os
-
+from mcts_agent import mcts_bot
 
 num_games = 100000
 
 
 bots_random = [
+    mcts_bot,
     bots.statistical_bot,
     bots.random_bot,
     bots.random_bot,
