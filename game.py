@@ -11,31 +11,28 @@ import liars_dice_mp
 from liars_dice_mp import action_to_bid
 from bots import random_bot, statistical_bot
 from bots.human_bot import create_human_agent
+from bots.player_model import PlayerModel
 
 NUM_PLAYERS = liars_dice_mp._DEFAULT_PLAYERS
 NUM_DICE    = liars_dice_mp._DEFAULT_DICE
 GAME        = pyspiel.load_game("liars_dice_mp")
 
-# ── Palette used throughout plots ────────────────────────────────────────────
 _PALETTE = ['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B2', '#937860']
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Core game runner
-# ─────────────────────────────────────────────────────────────────────────────
 
-def play_game(bots, verbose=True, observer=None):
-    """Run one complete game and return (winner_idx, stats_dict).
-
-    observer: optional callable(state_dict) called after every bidding action,
-              useful for live display updates (e.g. the human agent's figure).
-    """
+def play_game(bots, verbose=True, observer=None, player_model=None):
     assert len(bots) == NUM_PLAYERS
 
     state     = GAME.new_initial_state()
     own_rolls = {p: [] for p in range(NUM_PLAYERS)}
     round_num = 0
     bot_names = [b.__name__ for b in bots]
+
+    if player_model is None:
+        player_model = PlayerModel(NUM_PLAYERS)
+    _round_bid_log  = []   # [(player_id, qty, face)] — reset after each challenge
+    _rolls_snapshot = None  # captured just before rolls are cleared by resolve
 
     # Per-game tracking
     elimination_order = []   # [(player_id, bot_name, round_eliminated)]
@@ -48,7 +45,6 @@ def play_game(bots, verbose=True, observer=None):
         print(f"=== Liar's Dice | {NUM_PLAYERS} players, {NUM_DICE} dice ===")
 
     while not state.is_terminal():
-        # ── Chance node: roll dice one at a time ─────────────────────────────
         if state.is_chance_node():
             outcomes, probs = zip(*state.chance_outcomes())
             state.apply_action(random.choices(outcomes, weights=probs)[0])
@@ -64,7 +60,6 @@ def play_game(bots, verbose=True, observer=None):
                     print(f'    Rolls: { {p: own_rolls[p] for p in state._active} }')
             continue
 
-        # ── Bidding node ──────────────────────────────────────────────────────
         pid   = state.current_player()
         legal = state.legal_actions()
         bids  = [action_to_bid(a, NUM_PLAYERS, NUM_DICE) for a in legal]
@@ -83,6 +78,7 @@ def play_game(bots, verbose=True, observer=None):
             'dice_counts':    list(state._dice_counts),
             'total_dice':     sum(state._dice_counts[p] for p in state._active),
             'bot_names':      bot_names,
+            'player_model':   player_model,
         }
         action = bots[pid](state_dict)
 
@@ -96,6 +92,7 @@ def play_game(bots, verbose=True, observer=None):
             action_counts['bid'] += 1
             if bids_per_round:
                 bids_per_round[-1] += 1
+            _round_bid_log.append((pid, decoded[0], decoded[1]))
 
         if verbose:
             if is_liar:
@@ -106,13 +103,14 @@ def play_game(bots, verbose=True, observer=None):
                 print(f'  Player {pid} bids {decoded[0]}x{decoded[1]}')
 
         bid_challenged = state._prev_bid if (is_liar or is_spot_on) else None
+        # Snapshot rolls before _resolve clears them for the next round
+        if is_liar or is_spot_on:
+            _rolls_snapshot = [list(state._rolls[p]) for p in range(NUM_PLAYERS)]
         state.apply_action(action)
 
-        # ── Record challenge outcome ──────────────────────────────────────────
         dice_after   = list(state._dice_counts)
         active_after = list(state._active)
 
-        # Notify observer with full action context for live display
         if observer:
             observer({
                 'acting_player':  pid,
@@ -132,12 +130,21 @@ def play_game(bots, verbose=True, observer=None):
             caller_lost = dice_after[pid] < dice_before[pid]
             liar_calls.append({'caller': pid, 'bot': bot_names[pid],
                                'correct': not caller_lost})
+            player_model.update(
+                _round_bid_log, _rolls_snapshot, active_before,
+                {'caller': pid, 'type': 'liar', 'correct': not caller_lost},
+            )
+            _round_bid_log = []
         elif is_spot_on:
             caller_gained = dice_after[pid] > dice_before[pid]
             spot_on_calls.append({'caller': pid, 'bot': bot_names[pid],
                                   'correct': caller_gained})
+            player_model.update(
+                _round_bid_log, _rolls_snapshot, active_before,
+                {'caller': pid, 'type': 'spot_on', 'correct': caller_gained},
+            )
+            _round_bid_log = []
 
-        # ── Record eliminations ───────────────────────────────────────────────
         for p in active_before:
             if p not in active_after:
                 elimination_order.append((p, bot_names[p], round_num))
@@ -161,12 +168,10 @@ def play_game(bots, verbose=True, observer=None):
         'liar_calls':        liar_calls,
         'spot_on_calls':     spot_on_calls,
         'bids_per_round':    bids_per_round,
+        'player_model':      player_model,
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tournament runner
-# ─────────────────────────────────────────────────────────────────────────────
 
 def run_tournament(bots, n_games=200):
     print(f'\n--- Running {n_games}-game tournament ---')
@@ -179,10 +184,6 @@ def run_tournament(bots, n_games=200):
     return all_stats
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Visualisation
-# ─────────────────────────────────────────────────────────────────────────────
-
 def plot_tournament_stats(all_stats, bots, out_path='tournament_stats.png'):
     """Generate and save a 9-panel tournament breakdown figure."""
     bot_names   = [b.__name__ for b in bots]
@@ -190,7 +191,6 @@ def plot_tournament_stats(all_stats, bots, out_path='tournament_stats.png'):
     n_games     = len(all_stats)
     unique_bots = sorted(set(bot_names))
 
-    # ── Aggregations ──────────────────────────────────────────────────────────
     win_by_player = Counter(s['winner'] for s in all_stats)
     wins_by_type  = Counter(s['winner_bot'] for s in all_stats)
     game_lengths  = [s['rounds'] for s in all_stats]
@@ -227,7 +227,6 @@ def plot_tournament_stats(all_stats, bots, out_path='tournament_stats.png'):
     p_color  = {p: _PALETTE[i % len(_PALETTE)] for i, p in enumerate(range(n_players))}
     bt_color = {b: _PALETTE[i % len(_PALETTE)] for i, b in enumerate(unique_bots)}
 
-    # ── Figure layout ─────────────────────────────────────────────────────────
     fig = plt.figure(figsize=(20, 14))
     type_summary = ', '.join(
         f'{bot_names.count(b)}× {b}' for b in unique_bots

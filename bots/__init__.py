@@ -1,3 +1,5 @@
 from .random_bot import random_bot
 from .statistical_bot import statistical_bot
 from .human_bot import create_human_agent
+from .player_model import PlayerModel
+from .personality_bots import personality_bot, STYLE_NAMES
