@@ -203,7 +203,15 @@ def _update_figure(fig, axes, state):
         'green > 50% > orange > 35% > red)',
         fontweight='bold', fontsize=9
     )
-    fig.colorbar(im, ax=ax3, fraction=0.015, pad=0.01, label='P(valid)')
+    old_cbar = getattr(fig, "_bid_heatmap_colorbar", None)
+    if old_cbar is not None:
+        try:
+            old_cbar.remove()
+        except Exception:
+            pass
+
+    fig._bid_heatmap_colorbar = fig.colorbar(
+        im, ax=ax3,fraction=0.015,pad=0.01,label="P(valid)",)
 
     ax4 = axes['dice_counts']
     ax4.clear()
@@ -373,10 +381,79 @@ def _prompt_action(state):
         extras.append('  [[ [green bold]S[/] ]] [bold green]CALL SPOT-ON[/]')
     if extras:
         _console.print('   '.join(extras))
+        _console.print('  [[ [yellow bold]?[/] ]] HELP   [[ [red bold]Q[/] ]] QUIT')
     _console.print()
 
     while True:
         raw = _console.input('[bold]> [/]').strip().lower()
+        if raw in ("q", "quit", "exit"):
+            _console.print("[yellow]Exiting game...[/]")
+            raise KeyboardInterrupt
+        if raw in ("?", "help", "h"):
+            guide = Table(
+                title="🎲 Liar's Dice Quick Guide",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold yellow",
+                border_style="yellow",
+                expand=False,
+            )
+
+            guide.add_column("Input", style="bold cyan", width=12)
+            guide.add_column("Action", style="bold white", width=22)
+            guide.add_column("Meaning", style="white", width=58)
+
+            guide.add_row(
+                "1, 2, 3...",
+                "Choose listed bid",
+                "Pick one of the visible legal bids from the action list.",
+            )
+            guide.add_row(
+                "8 3",
+                "Direct bid",
+                "Bid directly: at least 8 dice showing face 3 on the whole table.",
+            )
+            guide.add_row(
+                "L",
+                "Call LIAR",
+                "Challenge the previous bid. Use it when P(valid) looks low.",
+            )
+            guide.add_row(
+                "S",
+                "Call SPOT-ON",
+                "Claim the previous bid is exactly correct. Use it when P(exact) looks high.",
+            )
+            guide.add_row(
+                "? / h / help",
+                "Show this guide",
+                "Open the quick guide again during your turn.",
+            )
+
+            _console.print()
+            _console.print(Panel(
+                guide,
+                title="[bold yellow]Captain's Table Manual[/]",
+                subtitle="[dim]Read the table, trust the odds, then bluff wisely.[/]",
+                border_style="yellow",
+                padding=(1, 2),
+                expand=False,
+            ))
+
+            _console.print(Panel(
+                "[bold cyan]P(valid)[/]  Probability that the current bid is true.\n"
+                "[bold cyan]P(exact)[/]  Probability that the current bid is exactly true.\n\n"
+                "[green]Tip:[/] If P(valid) is high, calling LIAR is risky.\n"
+                "[yellow]Tip:[/] If P(exact) is high, SPOT-ON can be powerful.\n"
+                "[red]Tip:[/] If both are low, the previous player may be bluffing.",
+                title="[bold]Reading the odds[/]",
+                border_style="cyan",
+                padding=(1, 2),
+                expand=False,
+            ))
+        continue
+        if raw in ("q", "quit", "exit"):
+            _console.print("[yellow]Exiting game...[/]")
+            raise KeyboardInterrupt
         if raw == 'l' and liar_act is not None:
             return liar_act
         if raw == 's' and spot_act is not None:
@@ -390,7 +467,7 @@ def _prompt_action(state):
             key = (int(parts[0]), int(parts[1]))
             if key in bid_lookup:
                 return bid_lookup[key]
-        _console.print('[red]Invalid. Enter a number, L, S, or "QTY FACE" (e.g. 7 4).[/]')
+        _console.print('[red]Invalid. Enter a number, L, S, or "QTY FACE" (e.g. 7 4), or ? for help.[/]')
 
 
 def create_human_agent(player_id=0, bot_names=None):
@@ -404,7 +481,12 @@ def create_human_agent(player_id=0, bot_names=None):
                     bot_names=bot_names or [])
 
     def observer(state):
-        _update_figure(fig, axes, _human_view(state))
+        try:
+            _update_figure(fig, axes, _human_view(state))
+        except Exception as exc:
+            _console.print(
+            f"[yellow]Live analysis window update failed, continuing game: {exc}[/]"
+        )
         if state.get('acting_player') != player_id:
             _print_opponent_action(dict(state, bot_names=bot_names or []))
 
@@ -412,7 +494,12 @@ def create_human_agent(player_id=0, bot_names=None):
         _human['your_id']    = state['your_id']
         _human['your_rolls'] = state['your_rolls']
         view = _human_view(state)
-        _update_figure(fig, axes, view)
+        try:
+            _update_figure(fig, axes, view)
+        except Exception as exc:
+            _console.print(
+            f"[yellow]Live analysis window update failed, continuing game: {exc}[/]"
+            )
         _console.print()
         _display_state(view)
         return _prompt_action(view)
