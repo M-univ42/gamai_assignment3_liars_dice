@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+# Game AI Assignment 3
+## Liar's Dice Agent
+=======
 # liars_dice
 Liar's Dice simulator written in Python
 
@@ -20,3 +24,4 @@ Bots are called every turn and are passed the game parameters in a dict with the
 
 Your bot should return a tuple `('number of dice','value')` to bet, `'bluff'` or `'spot on'`.
 Your response is ignored when it is not your turn.
+>>>>>>> f1fb4262d5736d61c2a7d691289ba705134046aa

@@ -2,6 +2,8 @@
 import random
 from collections import Counter, defaultdict
 
+import matplotlib
+matplotlib.use('Agg')
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -9,7 +11,7 @@ import pyspiel
 
 import liars_dice_mp
 from liars_dice_mp import action_to_bid
-from bots import random_bot, statistical_bot
+from bots import random_bot, statistical_bot, mcts_bot
 from bots.human_bot import create_human_agent
 from bots.player_model import PlayerModel
 
@@ -386,7 +388,7 @@ def plot_tournament_stats(all_stats, bots, out_path='tournament_stats.png'):
     ax9.set_ylabel('Bids')
 
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
-    plt.show()
+    plt.close()
 
     all_liar = [c for s in all_stats for c in s['liar_calls']]
     all_spot  = [c for s in all_stats for c in s['spot_on_calls']]
@@ -419,7 +421,7 @@ def play_interactive(human_player_id=0, n_opponents=5):
     except Exception:
         pass
 
-    ai_pool = [statistical_bot] * 3
+    ai_pool = [statistical_bot] * 2 + [random_bot] * 3 + [mcts_bot] * 5
     bots = []
     ai_idx = 0
     for p in range(NUM_PLAYERS):
@@ -452,4 +454,9 @@ def play_interactive(human_player_id=0, n_opponents=5):
 
 
 if __name__ == '__main__':
-    play_interactive(human_player_id=0)
+    from bots import random_bot, statistical_bot, mcts_bot, cfr_bot
+    bots = [cfr_bot, mcts_bot, statistical_bot, random_bot, statistical_bot, random_bot]
+    all_stats = run_tournament(bots, n_games=200)
+    plot_tournament_stats(all_stats, bots)
+    import os, subprocess
+    subprocess.Popen(['explorer', os.path.abspath('tournament_stats.png')])
