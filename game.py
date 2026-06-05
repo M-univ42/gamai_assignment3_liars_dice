@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import random
 from collections import Counter, defaultdict
 
@@ -36,30 +36,29 @@ def play_game(bots, verbose=True, observer=None, player_model=None):
     _round_bid_log  = []   # [(player_id, qty, face)] — reset after each challenge
     _rolls_snapshot = None  # captured just before rolls are cleared by resolve
 
-    # Per-game tracking
-    elimination_order = []   # [(player_id, bot_name, round_eliminated)]
-    liar_calls        = []   # [{'caller': pid, 'bot': name, 'correct': bool}]
-    spot_on_calls     = []   # [{'caller': pid, 'bot': name, 'correct': bool}]
-    action_counts     = Counter()  # 'bid' | 'liar' | 'spot_on'
-    bids_per_round    = []   # number of bid actions placed each round
+    elimination_order = []
+    liar_calls        = []
+    spot_on_calls     = []
+    action_counts     = Counter()
+    bids_per_round    = []
 
     if verbose:
-        print(f"=== Liar's Dice | {NUM_PLAYERS} players, {NUM_DICE} dice ===")
+        print(f"start game: {NUM_PLAYERS} players, {NUM_DICE} dice")
 
     while not state.is_terminal():
         if state.is_chance_node():
             outcomes, probs = zip(*state.chance_outcomes())
             state.apply_action(random.choices(outcomes, weights=probs)[0])
-            # Transition to bidding phase detected
+            #  bidding phase
             if not state.is_terminal() and not state.is_chance_node():
                 round_num += 1
                 for p in range(NUM_PLAYERS):
                     own_rolls[p] = list(state._rolls[p])
                 bids_per_round.append(0)
                 if verbose:
-                    print(f'\n--- Round {round_num} | Dice: '
+                    print(f'\n Round {round_num}, Dice: '
                           f'{ {p: state._dice_counts[p] for p in range(NUM_PLAYERS)} }')
-                    print(f'    Rolls: { {p: own_rolls[p] for p in state._active} }')
+                    print(f' Rolls: { {p: own_rolls[p] for p in state._active} }')
             continue
 
         pid   = state.current_player()
@@ -105,7 +104,6 @@ def play_game(bots, verbose=True, observer=None, player_model=None):
                 print(f'  Player {pid} bids {decoded[0]}x{decoded[1]}')
 
         bid_challenged = state._prev_bid if (is_liar or is_spot_on) else None
-        # Snapshot rolls before _resolve clears them for the next round
         if is_liar or is_spot_on:
             _rolls_snapshot = [list(state._rolls[p]) for p in range(NUM_PLAYERS)]
         state.apply_action(action)
@@ -151,13 +149,13 @@ def play_game(bots, verbose=True, observer=None, player_model=None):
             if p not in active_after:
                 elimination_order.append((p, bot_names[p], round_num))
                 if verbose:
-                    print(f'  *** Player {p} ({bot_names[p]}) eliminated in round {round_num} ***')
+                    print(f' Player {p} ({bot_names[p]}) eliminated in round {round_num}')
 
     returns = state.returns()
     winner  = returns.index(max(returns))
 
     if verbose:
-        print(f'\n=== Winner: Player {winner} ({bot_names[winner]}) ===')
+        print(f'\n Winner: Player {winner} ({bot_names[winner]})')
 
     return winner, {
         'winner':            winner,
@@ -176,7 +174,6 @@ def play_game(bots, verbose=True, observer=None, player_model=None):
 
 
 def run_tournament(bots, n_games=200):
-    print(f'\n--- Running {n_games}-game tournament ---')
     all_stats = []
     for i in range(n_games):
         _, stats = play_game(bots, verbose=(i == 0))
@@ -186,8 +183,8 @@ def run_tournament(bots, n_games=200):
     return all_stats
 
 
+# plot all tournament result stats in a single figure.
 def plot_tournament_stats(all_stats, bots, out_path='tournament_stats.png'):
-    """Generate and save a 9-panel tournament breakdown figure."""
     bot_names   = [b.__name__ for b in bots]
     n_players   = len(bots)
     n_games     = len(all_stats)
@@ -446,10 +443,10 @@ def play_interactive(human_player_id=0, n_opponents=5):
     import matplotlib.pyplot as plt
     plt.ioff()
     if winner == human_player_id:
-        print('\n  *** You win! ***')
+        print('\n  you win!')
     else:
         print(f'\n  Player {winner} ({bot_names[winner]}) wins.')
-    plt.show(block=True)    # keep figure open until closed manually
+    plt.show(block=True)
     return winner, stats
 
 
